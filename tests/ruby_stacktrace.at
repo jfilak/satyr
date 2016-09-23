@@ -154,6 +154,7 @@ check(char *filename)
   struct sr_ruby_stacktrace *stacktrace2 = sr_ruby_stacktrace_dup(stacktrace1);
 
   assert(stacktrace1 != stacktrace2);
+  printf("%s == %s\n", stacktrace1->exception_name, stacktrace2->exception_name);
   assert(0 == strcmp(stacktrace1->exception_name, stacktrace2->exception_name));
 
   struct sr_ruby_frame *f1 = stacktrace1->frames;

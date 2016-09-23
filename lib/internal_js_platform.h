@@ -1,7 +1,7 @@
 /*
-    report_type.h
+    js_stacktrace.c
 
-    Copyright (C) 2013  Red Hat, Inc.
+    Copyright (C) 2016  Red Hat, Inc.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -17,38 +17,18 @@
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-#ifndef SATYR_REPORT_TYPE_H
-#define SATYR_REPORT_TYPE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef SR_INTERNAL_JS_PLATFORM_H
+#define SR_INTERNAL_JS_PLATFORM_H
 
-enum sr_report_type
-{
-    SR_REPORT_INVALID = 0,
-    SR_REPORT_CORE,
-    SR_REPORT_PYTHON,
-    SR_REPORT_KERNELOOPS,
-    SR_REPORT_JAVA,
-    SR_REPORT_GDB,
-    SR_REPORT_RUBY,
-    SR_REPORT_JAVASCRIPT,
+struct sr_location;
+struct sr_js_frame;
+struct sr_js_stacktrace;
 
-    /* Keep this the last entry. */
-    SR_REPORT_NUM
-};
+struct sr_js_frame *
+js_platform_parse_frame_v8(const char **input, struct sr_location *location);
 
-/* returns malloc()ed string representation of report_type */
-char *
-sr_report_type_to_string(enum sr_report_type report_type);
+struct sr_js_stacktrace *
+js_platform_parse_stacktrace_v8(const char **input, struct sr_location *location);
 
-/* inverse function */
-enum sr_report_type
-sr_report_type_from_string(const char *report_type_str);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+#endif /* SR_INTERNAL_JS_PLATFORM_H */
