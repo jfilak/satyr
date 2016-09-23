@@ -186,8 +186,8 @@ int
 main(void)
 {
   struct sr_location location;
-  char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
-  char *input;
+  const char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
+  const char *input;
 
   sr_location_init(&location);
   input = line;
@@ -215,7 +215,7 @@ main(void)
   frame2->function_name = NULL;
   assert(0 != sr_js_frame_cmp(frame1, frame2) || !"function_name - NULL");
 
-  frame2->function_name = sr_strdump("foo_blah");
+  frame2->function_name = sr_strdup("foo_blah");
   assert(0 != sr_js_frame_cmp(frame1, frame2) || !"function_name");
 
   free(frame2->function_name);
@@ -245,8 +245,8 @@ int
 main(void)
 {
   struct sr_location location;
-  char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
-  char *input;
+  const char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
+  const char *input;
 
   sr_location_init(&location);
   input = line;
@@ -274,7 +274,7 @@ main(void)
   frame2->function_name = NULL;
   assert(0 != sr_js_frame_cmp_distance(frame1, frame2) || !"function_name - NULL");
 
-  frame2->function_name = sr_strdump("foo_blah");
+  frame2->function_name = sr_strdup("foo_blah");
   assert(0 != sr_js_frame_cmp_distance(frame1, frame2) || !"function_name");
 
   free(frame2->function_name);
@@ -304,12 +304,10 @@ int
 main(void)
 {
   struct sr_location location;
-  char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
-  char *input;
+  const char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
 
   sr_location_init(&location);
-  input = line;
-  struct sr_js_frame *frame1 = sr_js_frame_parse(&input, &location);
+  struct sr_js_frame *frame1 = sr_js_frame_parse(&line, &location);
   assert(frame1);
 
   struct sr_js_frame *frame2 = sr_js_frame_dup(frame1, false);
@@ -352,29 +350,35 @@ AT_TESTFUN([sr_js_frame_to_json], [[
 #include "js/frame.h"
 #include "utils.h"
 #include "location.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <assert.h>
 
 int
 main(void)
 {
   struct sr_location location;
-  char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
-  char *input;
+  const char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
 
   sr_location_init(&location);
-  input = line;
-  struct sr_js_frame *frame1 = sr_js_frame_parse(&input, &location);
+  struct sr_js_frame *frame1 = sr_js_frame_parse(&line, &location);
   assert(frame1);
 
-  char *expected = "{   \"file_name\": \"internal/process/next_tick.js\"\n"
-                   ",   \"file_line\": 98\n"
-                   ",   \"line_column\": 9\n"
-                   ",   \"function_name\": \"process._tickCallback\"\n"
-                   "}";
+  const char *expected =
+"{   \"file_name\": \"internal/process/next_tick.js\"\n"
+",   \"file_line\": 98\n"
+",   \"line_column\": 9\n"
+",   \"function_name\": \"process._tickCallback\"\n"
+"}";
 
   char *json = sr_js_frame_to_json(frame1);
-  assert(0 == strcmp(json, expected));
+  if (0 != strcmp(json, expected)) {
+    fprintf(stderr, "%s\n!=\n%s\n", json, expected);
+    assert(!"Invalid JSON for JavaScript frame");
+  }
 
+  free(json);
   return 0;
 }
 ]])
@@ -387,7 +391,7 @@ AT_TESTFUN([sr_js_frame_from_json], [[
 #include <assert.h>
 
 void
-check(char *input)
+check(const char *input)
 {
   struct sr_location location;
   sr_location_init(&location);
@@ -404,7 +408,10 @@ check(char *input)
   assert(frame2);
   assert(0 == sr_js_frame_cmp(frame1, frame2));
 
-  return 0;
+  sr_js_frame_free(frame2);
+  sr_json_value_free(root);
+  free(json);
+  sr_js_frame_free(frame1);
 }
 
 int
@@ -421,17 +428,18 @@ AT_TESTFUN([sr_js_frame_append_to_str], [[
 #include "utils.h"
 #include "location.h"
 #include "strbuf.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 
 int
 main(void)
 {
   struct sr_location location;
-  char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
-  char *input;
+  const char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
+  const char *input = line;
 
   sr_location_init(&location);
-  input = line;
   struct sr_js_frame *frame1 = sr_js_frame_parse(&input, &location);
   assert(frame1);
 
@@ -439,7 +447,13 @@ main(void)
   sr_js_frame_append_to_str(frame1, strbuf);
   char *result = sr_strbuf_free_nobuf(strbuf);
 
-  assert(0 == strcmp(result, "at process._tickCallback (internal/process/next_tick.js:98:9)"));
+  if (sr_strcmp0(result, line) != 0) {
+      fprintf(stderr, "'%s'\n  !=\n'%s'\n", result, line);
+      assert(!"Failed to format JavaScript frame to string.");
+  }
+
+  free(result);
+  sr_js_frame_free(frame1);
 
   return 0;
 }
@@ -451,21 +465,20 @@ AT_TESTFUN([sr_js_frame_generic_functions], [[
 #include "utils.h"
 #include "location.h"
 #include "strbuf.h"
+#include <string.h>
 #include <assert.h>
 
 int
 main(void)
 {
-  struct sr_location location;
-  char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
-  char *input;
+  const char *line = "at process._tickCallback (internal/process/next_tick.js:98:9)";
 
+  struct sr_location location;
   sr_location_init(&location);
-  input = line;
-  struct sr_js_frame *frame1 = sr_js_frame_parse(&input, &location);
+  struct sr_js_frame *frame1 = sr_js_frame_parse(&line, &location);
   assert(frame1);
 
-  assert(sr_frame_next(frame1) == NULL);
+  assert(sr_frame_next((struct sr_frame *)frame1) == NULL);
 
   struct sr_strbuf *strbuf = sr_strbuf_new();
   sr_frame_append_to_str((struct sr_frame*)frame1, strbuf);

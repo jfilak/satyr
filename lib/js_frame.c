@@ -78,6 +78,7 @@ void
 sr_js_frame_init(struct sr_js_frame *frame)
 {
     memset(frame, 0, sizeof(struct sr_js_frame));
+    frame->type = SR_REPORT_JAVASCRIPT;
 }
 
 void
@@ -422,6 +423,14 @@ sr_js_frame_to_json(struct sr_js_frame *frame)
         sr_strbuf_append_strf(strbuf,
                               ",   \"line_column\": %"PRIu32"\n",
                               frame->line_column);
+    }
+
+    /* Function name. */
+    if (frame->function_name)
+    {
+        sr_strbuf_append_str(strbuf, ",   \"function_name\": ");
+        sr_json_append_escaped(strbuf, frame->function_name);
+        sr_strbuf_append_str(strbuf, "\n");
     }
 
     strbuf->buf[0] = '{';
