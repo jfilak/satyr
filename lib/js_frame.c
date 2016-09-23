@@ -57,6 +57,11 @@ struct frame_methods js_frame_methods =
     .frame_free = (frame_free_fn_t) sr_js_frame_free,
 };
 
+struct sr_js_frame *(*js_frame_parsers[])(const char **input, struct sr_location *location) = 
+{
+    sr_js_frame_parse_v8,
+};
+
 /* Public functions */
 
 struct sr_js_frame *
@@ -180,16 +185,173 @@ sr_js_frame_append(struct sr_js_frame *dest,
 }
 
 struct sr_js_frame *
+sr_js_frame_parse_v8(const char **input,
+                     struct sr_location *location)
+{
+    int columns;
+
+    /*      at Object.<anonymous> ([stdin]-wrapper:6:22)
+     * ^^^^^^^^
+     *
+     * OR
+     *
+     *      at bootstrap_node.js:357:29
+     * ^^^^^^^^
+     */
+    const char *local_input = *input;
+    columns = sr_skip_char_span(&local_input, " ");
+    sr_location_add(location, 0, columns);
+
+    if (!(columns = sr_skip_string(&local_input, "at ")))
+    {
+        location->message = "Expected frame beginning.";
+        return NULL;
+    }
+    columns += sr_skip_char_span(&local_input, " ");
+    sr_location_add(location, 0, columns);
+
+    /* Object.<anonymous> ([stdin]-wrapper:6:22)
+     * ----------------------------------------^
+     *
+     * OR
+     *
+     * bootstrap_node.js:357:29
+     * -----------------------^
+     */
+    const char *cursor = strchrnul(local_input, '\n');
+    --cursor;
+
+    /* Ignore trailing white spaces */
+    while (cursor > local_input && *cursor == ' ')
+        --cursor;
+
+    struct sr_js_frame *frame = sr_js_frame_new();
+
+    /* Let's hope file names containing new lines are not very common.
+     * For example Node.js fails to execute such a file.
+     */
+    if (*cursor == ')')
+    {
+        /* Object.<anonymous> ([stdin]-wrapper:6:22)
+         * ------------------^
+         */
+        const char *name_beg = local_input;
+        columns = sr_skip_char_cspan(&local_input, " \n");
+        if (!columns || *local_input != ' ')
+        {
+            location->message = "White space right behind function name not found.";
+            goto fail;
+        }
+
+        /* Object.<anonymous> ([stdin]-wrapper:6:22)
+         * ^^^^^^^^^^^^^^^^^^
+         */
+        frame->function_name = sr_strndup(name_beg, columns);
+
+        sr_location_add(location, 0, columns);
+
+        /*  ([stdin]-wrapper:6:22)
+         * -^
+         */
+        columns = sr_skip_char_cspan(&local_input, "(\n");
+        if (!columns || *local_input != '(')
+        {
+            location->message = "Opening brace following function name not found.";
+            goto fail;
+        }
+
+        /* ([stdin]-wrapper:6:22)
+         * -^
+         */
+        sr_location_add(location, 0, columns + 1);
+        ++local_input;
+
+        /* ([stdin]-wrapper:6:22)
+         *                     ^-
+         */
+         --cursor;
+    }
+
+    /* Beware of file name containing colon, bracket or white space.
+     * That's the reason why parse these information backwards.
+     *
+     *
+     * bootstrap_node.js:357:29
+     *                      ^--
+     */
+    const char *token = cursor;
+    while (token > local_input && *token != ':')
+        --token;
+
+    if (token == local_input)
+    {
+        location->message = "Unable to locate line column.";
+        goto fail;
+    }
+
+    /* bootstrap_node.js:357:29
+     *                       ^^
+     */
+    cursor = token + 1;
+    if (!sr_parse_uint32(&cursor, &(frame->line_column)))
+    {
+        sr_location_add(location, 0, cursor - local_input);
+        location->message = "Failed to parse line column.";
+        goto fail;
+    }
+
+    /* bootstrap_node.js:357:29
+     *                  ^----
+     */
+    token -= 1;
+    while (token > local_input && *token != ':')
+        --token;
+
+    if (token == local_input)
+    {
+        location->message = "Unable to locate file line.";
+        goto fail;
+    }
+
+    /* bootstrap_node.js:357:29
+     *                   ^^^
+     */
+    cursor = token + 1;
+    if (!sr_parse_uint32(&cursor, &(frame->file_line)))
+    {
+        sr_location_add(location, 0, cursor - local_input);
+        location->message = "Failed to parse file line.";
+        goto fail;
+    }
+
+    /* bootstrap_node.js:357:29
+     * ^^^^^^^^^^^^^^^^^
+     */
+    frame->file_name = sr_strndup(local_input, token - local_input);
+
+    location->column += sr_skip_char_cspan(&local_input, "\n");
+
+    *input = local_input;
+    return frame;
+
+fail:
+    sr_js_frame_free(frame);
+    return NULL;
+}
+
+struct sr_js_frame *
 sr_js_frame_parse(const char **input,
                   struct sr_location *location)
 {
-    struct sr_js_frame *frame = NULL;
+    for (size_t i = 0; i < sizeof(js_frame_parsers)/sizeof(js_frame_parsers[0]); ++i)
+    {
+        struct sr_js_frame *frame = js_frame_parsers[i](input, location);
+        if (frame)
+            return frame;
+    }
 
-    frame = js_platform_parse_frame_v8(input, location);
-    if (frame == NULL)
-        location->message = "The frame does not match any JavaScript dialect";
-
-    return frame;
+    location->message = "The frame does not match any JavaScript dialect";
+    return NULL;
 }
 
 struct sr_js_frame *

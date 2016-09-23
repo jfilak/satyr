@@ -79,6 +79,9 @@ sr_js_frame_append(struct sr_js_frame *dest,
 struct sr_js_frame *
 sr_js_frame_parse(const char **input, struct sr_location *location);
 
+struct sr_js_frame *
+sr_js_frame_parse_v8(const char **input, struct sr_location *location);
+
 char *
 sr_js_frame_to_json(struct sr_js_frame *frame);
 

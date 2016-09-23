@@ -2,59 +2,81 @@
 
 AT_BANNER([Node.js frames])
 
-AT_TESTFUN([sr_js_frame_parse],
-[[
+AT_TESTFUN([sr_js_frame_parse_v8], [[
 #include "js/frame.h"
 #include "utils.h"
 #include "location.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
-#define check_valid(input, function, file, line, column, pos) \
-{ \
-    char *local_input = (char *)input; \
-    struct sr_location location; \
-    sr_location_init(&location); \
- \
-    struct sr_js_frame *frame; \
-    frame = sr_js_frame_parse(&input, &location); \
- \
-    assert(frame); \
- \
-    if (function) \
-        assert(frame->function_name && 0 == strcmp(frame->function_name, function) || !input); \
-    else \
-        asert(frame->function_name == NULL || !input); \
- \
-    if (file) \
-        assert(frame->file_name && 0 == strcmp(frame->file_name, file) || !input); \
-    else \
-        assert(frame->file_name == NULL || !input); \
- \
-    assert(frame->file_line == line || !input); \
-    assert(frame->line_column == column || !input); \
- \
-    assert(location.line == 0); \
-    assert(location.column == pos); \
- \
-    assert(*input == '\0' || !input); \
- \
-    sr_js_frame_free(frame); \
-}
+#define check_valid(i_input, e_function, e_file, e_line, e_column, e_loc_column) \
+    do { \
+        const char *r_input = i_input; \
+        struct sr_location r_location; \
+        sr_location_init(&r_location); \
+        struct sr_js_frame *r_frame; \
+        r_frame = sr_js_frame_parse_v8(&r_input, &r_location); \
+        if (r_frame == NULL) { \
+            fprintf(stderr, "unexpected error -> '%s'\n", r_location.message); \
+            assert(!i_input); \
+        } \
+        if (    ( e_function && (sr_strcmp0(r_frame->function_name, e_function) != 0)) \
+             || (!e_function && r_frame->function_name)) { \
+            fprintf(stderr, "function_name -> '%s' != '%s'\n", r_frame->function_name, e_function); \
+            assert(!i_input); \
+        } \
+        if (    ( e_file && (sr_strcmp0(r_frame->file_name, e_file) != 0)) \
+             || (!e_file && r_frame->file_name)) { \
+            fprintf(stderr, "file_name -> '%s' != '%s'\n", r_frame->file_name, e_file); \
+            assert(!i_input); \
+        } \
+        if (r_frame->file_line != e_line) { \
+            fprintf(stderr, "file_line -> %d != %d\n", r_frame->file_line, e_line); \
+            assert(!i_input); \
+        } \
+        if (r_frame->line_column != e_column) { \
+            fprintf(stderr, "line_column -> %d != %d\n", r_frame->line_column, e_column); \
+            assert(!i_input); \
+        } \
+        if (r_location.line != 1) { \
+            fprintf(stderr, "line -> %d != 0\n", r_location.line); \
+            assert(!i_input); \
+        } \
+        if (r_location.column != e_loc_column) { \
+            fprintf(stderr, "column -> %d != %d\n", r_location.column, e_loc_column); \
+            assert(!i_input); \
+        } \
+        if (*r_input != '\0') { \
+            fprintf(stderr, "*r_input -> %c != \\0\n", *r_input); \
+            assert(!i_input); \
+        } \
+        sr_js_frame_free(r_frame); \
+    } while (0)
 
 
-#define check_invalid(input, message, line, column) \
-{ \
-    char *local_input = (char *)input; \
-    struct sr_location location; \
-    sr_location_init(&location); \
- \
-    struct sr_js_frame *frame = sr_js_frame_parse(&local_input, &location); \
-    assert(!frame || !input); \
-    assert(location.message || !input); \
-    assert(0 == strcmp(messgae, location.message) || !input); \
-    assert(location.line == line || !input); \
-    assert(location.column == column || !input); \
-}
+#define check_invalid(i_input, e_message, e_line, e_column) \
+    do { \
+        const char *r_input = i_input; \
+        struct sr_location r_location; \
+        sr_location_init(&r_location); \
+        struct sr_js_frame *r_frame = sr_js_frame_parse_v8(&r_input, &r_location); \
+        assert(!r_frame || !i_input); \
+        assert(r_location.message || !i_input); \
+        if (0 != strcmp(e_message, r_location.message)) {  \
+            fprintf(stderr, "error_message -> '%s' != '%s'\n", r_location.message, e_message); \
+            assert(!i_input); \
+        } \
+        if (r_location.line != e_line) { \
+            fprintf(stderr, "line -> %d != %d\n", r_location.line, e_line); \
+            assert(!i_input); \
+        } \
+        if (r_location.column != e_column) { \
+            fprintf(stderr, "column -> %d != %d\n", r_location.column, e_column); \
+            assert(!i_input); \
+        } \
+    } while (0)
 
 int
 main(void)
@@ -64,7 +86,7 @@ main(void)
                 "vm.js",
                 25,
                 33,
-                60);
+                61);
 
     check_valid("at    ContextifyScript.Script.runInThisContext    (vm.js:25:33)",
                 "ContextifyScript.Script.runInThisContext",
@@ -73,12 +95,19 @@ main(void)
                 33,
                 63);
 
+    check_valid("at    ContextifyScript.Script.runInThisContext    (vm.js:25:33)  ",
+                "ContextifyScript.Script.runInThisContext",
+                "vm.js",
+                25,
+                33,
+                65);
+
     check_valid("    at bootstrap_node.js:357:29",
                 NULL,
                 "bootstrap_node.js",
                 357,
                 29,
-                58);
+                31);
 
     check_valid("at    bootstrap_node.js:357:29",
                 NULL,
@@ -86,6 +115,13 @@ main(void)
                 357,
                 29,
                 30);
+
+    check_valid("at    bootstrap_node.js:357:29  ",
+                NULL,
+                "bootstrap_node.js",
+                357,
+                29,
+                32);
 
     check_valid("    at (b[c]d):e.js:2:1",
                 NULL,
@@ -99,43 +135,48 @@ main(void)
                 "a(b[c]d):e.js",
                 67,
                 7,
-                44);
+                45);
 
     check_invalid(" bootstrap_node.js:357:29",
                   "Expected frame beginning.",
-                  0,
-                  0);
+                  1,
+                  1);
 
     check_invalid("at bootstrap_node.js:357:29)",
-                  "Opening brace with file information not found.",
-                  0,
-                  0);
+                  "White space right behind function name not found.",
+                  1,
+                  3);
+
+    check_invalid("at bootstrap_node.js:357:29 )",
+                  "Opening brace following function name not found.",
+                  1,
+                  27);
 
     check_invalid(" at vm.js",
                   "Unable to locate line column.",
-                  0,
-                  8);
+                  1,
+                  4);
 
     check_invalid(" at vm.js:25:a",
                   "Failed to parse line column.",
-                  0,
+                  1,
                   13);
 
     check_invalid(" at vm.js:25",
                   "Unable to locate file line.",
-                  0,
-                  8);
+                  1,
+                  4);
 
     check_invalid(" at vm.js:a:25",
                   "Failed to parse file line.",
-                  0,
-                  8);
+                  1,
+                  10);
+
     return 0;
 }
 ]])
 
-AT_TESTFUN([sr_js_frame_cmp],
-[[
+AT_TESTFUN([sr_js_frame_cmp], [[
 #include "js/frame.h"
 #include "utils.h"
 #include "location.h"
@@ -194,8 +235,7 @@ main(void)
 }
 ]])
 
-AT_TESTFUN([sr_js_frame_cmp_distance],
-[[
+AT_TESTFUN([sr_js_frame_cmp_distance], [[
 #include "js/frame.h"
 #include "utils.h"
 #include "location.h"
@@ -254,8 +294,7 @@ main(void)
 }
 ]])
 
-AT_TESTFUN([sr_js_frame_dup],
-[[
+AT_TESTFUN([sr_js_frame_dup], [[
 #include "js/frame.h"
 #include "utils.h"
 #include "location.h"
@@ -284,8 +323,7 @@ main(void)
 }
 ]])
 
-AT_TESTFUN([sr_js_frame_append],
-[[
+AT_TESTFUN([sr_js_frame_append], [[
 #include "js/frame.h"
 #include "utils.h"
 #include "location.h"
@@ -310,8 +348,7 @@ main(void)
 }
 ]])
 
-AT_TESTFUN([sr_js_frame_to_json],
-[[
+AT_TESTFUN([sr_js_frame_to_json], [[
 #include "js/frame.h"
 #include "utils.h"
 #include "location.h"
@@ -342,8 +379,7 @@ main(void)
 }
 ]])
 
-AT_TESTFUN([sr_js_frame_from_json],
-[[
+AT_TESTFUN([sr_js_frame_from_json], [[
 #include "js/frame.h"
 #include "utils.h"
 #include "json.h"
@@ -380,8 +416,7 @@ main(void)
 }
 ]])
 
-AT_TESTFUN([sr_js_frame_append_to_str],
-[[
+AT_TESTFUN([sr_js_frame_append_to_str], [[
 #include "js/frame.h"
 #include "utils.h"
 #include "location.h"
@@ -410,8 +445,7 @@ main(void)
 }
 ]])
 
-AT_TESTFUN([sr_js_frame_generic_functions],
-[[
+AT_TESTFUN([sr_js_frame_generic_functions], [[
 #include "js/frame.h"
 #include "frame.h"
 #include "utils.h"

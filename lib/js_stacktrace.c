@@ -135,12 +135,101 @@ sr_js_stacktrace_dup(struct sr_js_stacktrace *stacktrace)
 }
 
 struct sr_js_stacktrace *
+sr_js_stacktrace_parse_v8(const char **input,
+                          struct sr_location *location)
+{
+    const char *local_input = *input;
+    struct sr_js_stacktrace *stacktrace = sr_js_stacktrace_new();
+
+    /*
+     * ReferenceError: nonexistentFunc is not defined
+     * ^^^^^^^^^^^^^^
+     */
+    if (!sr_parse_char_cspan(&local_input, ":", &stacktrace->exception_name))
+    {
+        location->message = "Unable to find the colon right behind exception type.";
+        goto fail;
+    }
+
+    {
+        const size_t name_len = strlen(stacktrace->exception_name);
+        if (name_len == 0)
+        {
+            location->message = "Zero length exception type.";
+            goto fail;
+        }
+
+        location->column += name_len;
+    }
+
+    /*
+     * ReferenceError: nonexistentFunc is not defined
+     *               ^^
+     */
+    if (!sr_skip_string(&local_input, ": "))
+    {
+        location->message = "Unable to find the colon after first exception type.";
+        goto fail;
+    }
+
+    /*
+     * ReferenceError: nonexistentFunc is not defined
+     *                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     *
+     * Ignore error message because it may contain security sensitive data.
+     */
+    if (!sr_skip_to_next_line_location(&local_input, &location->line, &location->column))
+    {
+        location->message = "Stack trace does not include any frames.";
+        goto fail;
+    }
+
+    struct sr_js_frame *last_frame = NULL;
+    while (*local_input != '\0')
+    {
+        struct sr_js_frame *current_frame = sr_js_frame_parse_v8(&local_input,
+                                                                 location);
+        if (current_frame == NULL)
+            goto fail;
+
+        if (stacktrace->frames == NULL)
+            stacktrace->frames = current_frame;
+        else
+            last_frame->next = current_frame;
+
+        /* Eat newline (except at the end of file). */
+        if (!sr_skip_char(&local_input, '\n') && *local_input != '\0')
+        {
+            location->message = "Expected newline after stacktrace frame.";
+            goto fail;
+        }
+
+        location->column = 0;
+        location->line++;
+
+        last_frame = current_frame;
+    }
+
+    *input = local_input;
+    return stacktrace;
+
+fail:
+    sr_js_stacktrace_free(stacktrace);
+    return NULL;
+}
+
+struct sr_js_stacktrace *
 sr_js_stacktrace_parse(const char **input,
                        struct sr_location *location)
 {
     struct sr_js_stacktrace *stacktrace = NULL;
 
-    stacktrace = js_platform_parse_stacktrace_v8(input, location);
+    /* In the future, iterate over all platforms and
+     * call the sr_js_platform_parse_stacktrace() function.
+     * Why?
+     * Because we want to know the platform where the stacktrace was caught.
+     */
+    stacktrace = sr_js_stacktrace_parse_v8(input, location);
     if (stacktrace == NULL)
         location->message = "The stacktrace does not match any JavaScript dialect";
 

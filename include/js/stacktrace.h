@@ -60,6 +60,10 @@ struct sr_js_stacktrace *
 sr_js_stacktrace_parse(const char **input,
                        struct sr_location *location);
 
+struct sr_js_stacktrace *
+sr_js_stacktrace_parse_v8(const char **input,
+                          struct sr_location *location);
+
 char *
 sr_js_stacktrace_get_reason(struct sr_js_stacktrace *stacktrace);
 
