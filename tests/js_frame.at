@@ -102,6 +102,13 @@ main(void)
                 33,
                 65);
 
+    check_valid("    at PipeConnectWrap.afterConnect [as oncomplete] (net.js:1068:10)",
+                "PipeConnectWrap.afterConnect",
+                "net.js",
+                1068,
+                10,
+                68);
+
     check_valid("    at bootstrap_node.js:357:29",
                 NULL,
                 "bootstrap_node.js",
