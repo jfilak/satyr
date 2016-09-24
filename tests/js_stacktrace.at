@@ -2,83 +2,142 @@
 
 AT_BANNER([JavaScript stacktrace])
 
-AT_TESTFUN([sr_js_stacktrace_parse],
+AT_TESTFUN([sr_js_stacktrace_parse_v8],
 [[
 #include "js/stacktrace.h"
 #include "js/frame.h"
 #include "utils.h"
+#include "strbuf.h"
 #include "location.h"
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 
 void
-check(char *filename, char *exc_name, unsigned frame_count, struct sr_js_frame *top_frame, struct sr_js_frame *second_frame, struct sr_js_frame *bottom_frame)
+print_frame(FILE *out, struct sr_js_frame *frame)
 {
-  char *error_message = NULL;
-  const char *file_contents = sr_file_to_string(filename, &error_message);
-  const char *input = file_contents;
-  struct sr_location location;
-  sr_location_init(&location);
+    struct sr_strbuf *buf = sr_strbuf_new();
+    sr_js_frame_append_to_str(frame, buf);
+    fprintf(out, "%s", buf->buf);
+    sr_strbuf_free(buf);
+}
 
-  struct sr_js_stacktrace *stacktrace = sr_js_stacktrace_parse(&input, &location);
-  assert(stacktrace);
-  assert(*input == '\0');
-  assert(0 == strcmp(stacktrace->exception_name, exc_name));
+void
+check(char *filename, char *exc_name, unsigned frame_count,
+      struct sr_js_frame *top_frame,
+      struct sr_js_frame *second_frame,
+      struct sr_js_frame *bottom_frame)
+{
+    char *error_message = NULL;
+    char *file_contents = sr_file_to_string(filename, &error_message);
+    const char *input = file_contents;
+    struct sr_location location;
+    sr_location_init(&location);
 
-  struct sr_js_frame *frame = stacktrace->frames;
-  int i = 0;
-  while (frame)
-  {
-    if (i==0 && top_frame)
-    {
-      assert(sr_js_frame_cmp(frame, top_frame) == 0);
+    struct sr_js_stacktrace *stacktrace = sr_js_stacktrace_parse_v8(&input, &location);
+    assert(stacktrace);
+    assert(*input == '\0');
+    if (0 != sr_strcmp0(stacktrace->exception_name, exc_name)) {
+        fprintf(stderr, "exception_name -> '%s' != '%s'\n", stacktrace->exception_name, exc_name);
+        assert(!"Parsed exception name");
     }
-    else if (i == 1 && second_frame)
+
+    struct sr_js_frame *frame = stacktrace->frames;
+    int i = 0;
+    while (frame)
     {
-      assert(sr_js_frame_cmp(frame, second_frame) == 0);
+        if (i==0 && top_frame) {
+            if (sr_js_frame_cmp(frame, top_frame) != 0) {
+                print_frame(stderr, frame);
+                fprintf(stderr, "\n  !=\n");
+                print_frame(stderr, top_frame);
+                fprintf(stderr, "\n");
+                assert(!"Invalid top frame");
+            }
+        }
+        else if (i == 1 && second_frame) {
+            if (sr_js_frame_cmp(frame, second_frame) != 0) {
+                print_frame(stderr, frame);
+                fprintf(stderr, "\n  !=\n");
+                print_frame(stderr, second_frame);
+                fprintf(stderr, "\n");
+                assert(!"Invalid second frame");
+            }
+        }
+
+        frame = frame->next;
+        i++;
     }
 
-    frame = frame->next;
-    i++;
-  }
+    assert(i == frame_count);
+    if (frame && bottom_frame)
+    {
+        if (sr_js_frame_cmp(frame, bottom_frame) != 0) {
+            print_frame(stderr, frame);
+            fprintf(stderr, "\n  !=\n");
+            print_frame(stderr, bottom_frame);
+            fprintf(stderr, "\n");
+            assert(!"Invalid bottom frame");
+        }
+    }
 
-  assert(i == frame_count);
-  if (frame && bottom_frame)
-  {
-    assert(sr_js_frame_cmp(frame, bottom_frame) == 0);
-  }
-
-  sr_js_stacktrace_free(stacktrace);
-  free(file_contents);
+    sr_js_stacktrace_free(stacktrace);
+    free(file_contents);
 }
 
 int
 main(void)
 {
-  struct sr_js_frame top = {
-    .type = SR_REPORT_JAVASCRIPT,
-    .file_name = "/home/jfilak/repos/abrt-js/testapp/index.js",
-    .file_line = 2,
-    .line_colum = 1,
-  };
-  struct sr_js_frame second = {
-    .type = SR_REPORT_JAVASCRIPT,
-    .file_name = "/usr/share/js/vendor_js/will_crash.rb",
-    .file_line = 10,
-    .line_column = ,
-    .function_name = "main",
-  };
-  struct sr_js_frame bottom = {
-    .type = SR_REPORT_JAVASCRIPT,
-    .file_name = "/usr/bin/will_js_raise",
-    .file_line = 8,
-    .line_column = ,
-    .function_name = "main",
-  };
-  check("../../js_stacktraces/node-01", "ReferenceError", 21, &top, &second, &bottom);
+    {
+        struct sr_js_frame top = {
+            .type = SR_REPORT_JAVASCRIPT,
+            .file_name = "/tmp/index.js",
+            .file_line = 2,
+            .line_column = 1,
+            .function_name = "Object.<anonymous>",
+        };
+        struct sr_js_frame second = {
+            .type = SR_REPORT_JAVASCRIPT,
+            .file_name = "module.js",
+            .file_line = 556,
+            .line_column = 32,
+            .function_name = "Module._compile",
+        };
+        struct sr_js_frame bottom = {
+            .type = SR_REPORT_JAVASCRIPT,
+            .file_name = "bootstrap_node.js",
+            .file_line = 509,
+            .line_column = 3,
+            .function_name = NULL,
+        };
+        check("../../js_stacktraces/node-01", "ReferenceError", 10, &top, &second, &bottom);
+    }
 
-  check("../../js_stacktraces/node-02", "RuntimeError", 4, NULL, NULL, NULL);
+    {
+        struct sr_js_frame top = {
+            .type = SR_REPORT_JAVASCRIPT,
+            .file_name = "/tmp/index.js",
+            .file_line = 16,
+            .line_column = 35,
+            .function_name = "Socket.<anonymous>",
+        };
+        struct sr_js_frame second = {
+            .type = SR_REPORT_JAVASCRIPT,
+            .file_name = "events.js",
+            .file_line = 286,
+            .line_column = 16,
+            .function_name = "Socket.g",
+        };
+        struct sr_js_frame bottom = {
+            .type = SR_REPORT_JAVASCRIPT,
+            .file_name = "net.js",
+            .file_line = 1068,
+            .line_column = 10,
+            .function_name = "PipeConnectWrap.afterConnect",
+        };
+        check("../../js_stacktraces/node-02", "TypeError", 5, &top, &second, &bottom);
+    }
 
   return 0;
 }
