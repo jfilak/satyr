@@ -145,22 +145,20 @@ sr_js_stacktrace_parse_v8(const char **input,
      * ReferenceError: nonexistentFunc is not defined
      * ^^^^^^^^^^^^^^
      */
-    if (!sr_parse_char_cspan(&local_input, ":", &stacktrace->exception_name))
+    const int columns = sr_parse_char_cspan(&local_input, ":\n", &stacktrace->exception_name);
+    if (local_input[0] != ':')
     {
         location->message = "Unable to find the colon right behind exception type.";
         goto fail;
     }
 
+    if (columns == 0)
     {
-        const size_t name_len = strlen(stacktrace->exception_name);
-        if (name_len == 0)
-        {
-            location->message = "Zero length exception type.";
-            goto fail;
-        }
-
-        location->column += name_len;
+        location->message = "Zero length exception type.";
+        goto fail;
     }
+
+    sr_location_add(location, 0, columns);
 
     /*
      * ReferenceError: nonexistentFunc is not defined
@@ -168,7 +166,7 @@ sr_js_stacktrace_parse_v8(const char **input,
      */
     if (!sr_skip_string(&local_input, ": "))
     {
-        location->message = "Unable to find the colon after first exception type.";
+        location->message = "Exception type not followed by white space.";
         goto fail;
     }
 
@@ -344,19 +342,20 @@ sr_js_stacktrace_get_reason(struct sr_js_stacktrace *stacktrace)
 {
     char *exc = "Error";
     char *file = "<unknown>";
-    uint32_t line = 0;
+    uint32_t line = 0, column = 0;
 
     struct sr_js_frame *frame = stacktrace->frames;
     if (frame)
     {
         file = frame->file_name;
         line = frame->file_line;
+        column = frame->line_column;
     }
 
     if (stacktrace->exception_name)
         exc = stacktrace->exception_name;
 
-    return sr_asprintf("%s in %s:%"PRIu32, exc, file, line);
+    return sr_asprintf("%s at %s:%"PRIu32":%"PRIu32, exc, file, line, column);
 }
 
 static void

@@ -282,7 +282,15 @@ sr_js_frame_parse_v8(const char **input,
      */
     const char *token = cursor;
     while (token > local_input && *token != ':')
+    {
+        if (!isdigit(*token))
+        {
+            sr_location_add(location, 0, (token - local_input) + 1);
+            location->message = "Line column contains ilegal symbol.";
+            goto fail;
+        }
         --token;
+    }
 
     if (token == local_input)
     {
@@ -306,7 +314,15 @@ sr_js_frame_parse_v8(const char **input,
      */
     token -= 1;
     while (token > local_input && *token != ':')
+    {
+        if (!isdigit(*token))
+        {
+            sr_location_add(location, 0, (token - local_input) + 1);
+            location->message = "File line contains ilegal symbol.";
+            goto fail;
+        }
         --token;
+    }
 
     if (token == local_input)
     {

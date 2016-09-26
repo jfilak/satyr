@@ -5,6 +5,7 @@ AT_BANNER([Node.js frames])
 AT_TESTFUN([sr_js_frame_parse_v8], [[
 #include "js/frame.h"
 #include "utils.h"
+#include "strbuf.h"
 #include "location.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,7 +63,13 @@ AT_TESTFUN([sr_js_frame_parse_v8], [[
         struct sr_location r_location; \
         sr_location_init(&r_location); \
         struct sr_js_frame *r_frame = sr_js_frame_parse_v8(&r_input, &r_location); \
-        assert(!r_frame || !i_input); \
+        if (r_frame != NULL) { \
+            struct sr_strbuf *buf = sr_strbuf_new(); \
+            sr_js_frame_append_to_str(r_frame, buf); \
+            fprintf(stderr, "NULL != '%s'\n", buf->buf); \
+            sr_strbuf_free(buf); \
+            assert(!i_input); \
+        } \
         assert(r_location.message || !i_input); \
         if (0 != strcmp(e_message, r_location.message)) {  \
             fprintf(stderr, "error_message -> '%s' != '%s'\n", r_location.message, e_message); \
@@ -144,6 +151,21 @@ main(void)
                 7,
                 45);
 
+    check_invalid("    at ContextifyScript.Script.runInThisContext (vm.js:25:foo)",
+                  "Line column contains ilegal symbol.",
+                  1,
+                  61);
+
+    check_invalid("    at ContextifyScript.Script.runInThisContext (vm.js:25:33) at",
+                  "Line column contains ilegal symbol.",
+                  1,
+                  64);
+
+    check_invalid("    at ContextifyScript.Script.runInThisContext (vm.js:foo:33)",
+                  "File line contains ilegal symbol.",
+                  1,
+                  58);
+
     check_invalid(" bootstrap_node.js:357:29",
                   "Expected frame beginning.",
                   1,
@@ -159,22 +181,22 @@ main(void)
                   1,
                   27);
 
-    check_invalid(" at vm.js",
+    check_invalid(" at Foo (1234)",
                   "Unable to locate line column.",
                   1,
-                  4);
+                  9);
 
-    check_invalid(" at vm.js:25:a",
+    check_invalid(" at vm.js:25:",
                   "Failed to parse line column.",
                   1,
                   13);
 
-    check_invalid(" at vm.js:25",
+    check_invalid(" at Foo (1234:25)",
                   "Unable to locate file line.",
                   1,
-                  4);
+                  9);
 
-    check_invalid(" at vm.js:a:25",
+    check_invalid(" at vm.js::25",
                   "Failed to parse file line.",
                   1,
                   10);
