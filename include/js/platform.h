@@ -18,8 +18,8 @@
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-#ifndef SATYR_JS_platform
-#define SATYR_JS_platform
+#ifndef SATYR_JS_PLATFORM_H
+#define SATYR_JS_PLATFORM_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -143,4 +143,4 @@ sr_js_platform_parse_frame(sr_js_platform_t platform, const char **input,
 }
 #endif
 
-#endif /* SATYR_JS_platform */
+#endif /* SATYR_JS_PLATFORM_H */
