@@ -25,4 +25,8 @@
         ,   "line_column": 10
         ,   "function_name": "PipeConnectWrap.afterConnect"
         } ]
+,   "platform":
+        {    "engine": "V8"
+        ,    "runtime": "<unknown>"
+        }
 }

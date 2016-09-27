@@ -49,4 +49,8 @@
         ,   "file_line": 509
         ,   "line_column": 3
         } ]
+,   "platform":
+        {    "engine": "V8"
+        ,    "runtime": "<unknown>"
+        }
 }

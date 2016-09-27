@@ -1,6 +1,7 @@
 EXTRA_DIST = gdb_stacktraces \
              java_stacktraces \
              ruby_stacktraces \
+             js_stacktraces \
              json_files \
              kerneloopses \
              programs \

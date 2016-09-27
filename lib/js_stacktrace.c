@@ -17,8 +17,6 @@
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-
-#include "internal_js_platform.h"
 #include "js/platform.h"
 #include "js/stacktrace.h"
 #include "js/frame.h"
@@ -228,10 +226,16 @@ sr_js_stacktrace_parse(const char **input,
      * Because we want to know the platform where the stacktrace was caught.
      */
     stacktrace = sr_js_stacktrace_parse_v8(input, location);
-    if (stacktrace == NULL)
-        location->message = "The stacktrace does not match any JavaScript dialect";
+    if (stacktrace != NULL)
+    {
+        stacktrace->platform = sr_js_platform_new();
+        sr_js_platform_init(stacktrace->platform, 0, SR_JS_ENGINE_V8);
 
-    return stacktrace;
+        return stacktrace;
+    }
+
+    location->message = "The stacktrace does not match any JavaScript dialect";
+    return NULL;
 }
 
 char *
@@ -275,7 +279,7 @@ sr_js_stacktrace_to_json(struct sr_js_stacktrace *stacktrace)
     /* Platform.*/
     if (stacktrace->platform)
     {
-        sr_strbuf_append_str(strbuf, ",   \"platform\": ");
+        sr_strbuf_append_str(strbuf, ",   \"platform\":\n        ");
         char *platform_json = sr_js_platform_to_json(stacktrace->platform);
         char *indented_platform_json = sr_indent_except_first_line(platform_json, 8);
         sr_strbuf_append_str(strbuf, indented_platform_json);
@@ -328,6 +332,9 @@ sr_js_stacktrace_from_json(struct sr_json_value *root, char **error_message)
     struct sr_json_value *platform = json_element(root, "platform");
     if (platform)
     {
+        result->platform = sr_js_platform_from_json(platform, error_message);
+        if (*error_message)
+            goto fail;
     }
 
     return result;

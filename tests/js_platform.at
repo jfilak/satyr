@@ -252,34 +252,34 @@ AT_TESTFUN([sr_js_platform_to_json], [[
 int main(void)
 {
     check(0, 0,
-"{      \"engine\": \"<unknown>\"\n" \
-",      \"runtime\": \"<unknown>\"\n" \
-"}");
+"{    \"engine\": \"<unknown>\"\n" \
+",    \"runtime\": \"<unknown>\"\n" \
+"}\n");
 
     check(_SR_JS_RUNTIME_UPPER_BOUND, _SR_JS_ENGINE_UPPER_BOUND,
-"{      \"engine\": \"<unknown>\"\n" \
-",      \"runtime\": \"<unknown>\"\n" \
-"}");
+"{    \"engine\": \"<unknown>\"\n" \
+",    \"runtime\": \"<unknown>\"\n" \
+"}\n");
 
     check(_SR_JS_RUNTIME_UNINIT, _SR_JS_ENGINE_UNINIT,
-"{      \"engine\": \"<unknown>\"\n" \
-",      \"runtime\": \"<unknown>\"\n" \
-"}");
+"{    \"engine\": \"<unknown>\"\n" \
+",    \"runtime\": \"<unknown>\"\n" \
+"}\n");
 
     check(SR_JS_RUNTIME_NODEJS, 0,
-"{      \"engine\": \"<unknown>\"\n" \
-",      \"runtime\": \"Node.js\"\n" \
-"}");
+"{    \"engine\": \"<unknown>\"\n" \
+",    \"runtime\": \"Node.js\"\n" \
+"}\n");
 
     check(0, SR_JS_ENGINE_V8,
-"{      \"engine\": \"V8\"\n" \
-",      \"runtime\": \"<unknown>\"\n" \
-"}");
+"{    \"engine\": \"V8\"\n" \
+",    \"runtime\": \"<unknown>\"\n" \
+"}\n");
 
     check(SR_JS_RUNTIME_NODEJS, SR_JS_ENGINE_V8,
-"{      \"engine\": \"V8\"\n" \
-",      \"runtime\": \"Node.js\"\n" \
-"}");
+"{    \"engine\": \"V8\"\n" \
+",    \"runtime\": \"Node.js\"\n" \
+"}\n");
 
     return 0;
 }
@@ -368,7 +368,7 @@ int main(void)
           "Unknown JavaScript engine 'foo'");
 
     check("{ \"engine\": \"V8\", \"runtime\": \"Node.js\" }",
-          true, SR_JS_RUNTIME_NODEJS, SR_JS_ENGINE_V8, NULL);
+          true, SR_JS_RUNTIME_NODEJS, SR_JS_ENGINE_V8, "No error expected");
 
     return 0;
 }

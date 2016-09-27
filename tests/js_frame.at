@@ -1,6 +1,6 @@
 # Checking the satyr. -*- Autotest -*-
 
-AT_BANNER([Node.js frames])
+AT_BANNER([JavaScript frames])
 
 AT_TESTFUN([sr_js_frame_parse_v8], [[
 #include "js/frame.h"

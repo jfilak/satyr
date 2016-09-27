@@ -9,7 +9,10 @@ AT_BANNER([Report])
 AT_TESTFUN([sr_report_type_to_string],
 [[
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "report_type.h"
+#include "utils.h"
 
 void check(enum sr_report_type type, const char *str)
 {
@@ -25,7 +28,7 @@ int main(void)
   check(SR_REPORT_KERNELOOPS, "kerneloops");
   check(SR_REPORT_GDB, "gdb");
   check(SR_REPORT_RUBY, "ruby");
-  check(SR_REPORT_JS, "javascript");
+  check(SR_REPORT_JAVASCRIPT, "javascript");
   check(SR_REPORT_NUM, "invalid");
   check(5000, "invalid");
   check(-42, "invalid");
@@ -42,6 +45,7 @@ AT_TESTFUN([sr_report_type_from_string],
 [[
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "report_type.h"
 
 void check(enum sr_report_type type, char *str)
@@ -58,7 +62,7 @@ int main(void)
   check(SR_REPORT_PYTHON, "python");
   check(SR_REPORT_GDB, "gdb");
   check(SR_REPORT_RUBY, "ruby");
-  check(SR_REPORT_JS, "javascript");
+  check(SR_REPORT_JAVASCRIPT, "javascript");
   check(SR_REPORT_INVALID, NULL);
   check(SR_REPORT_INVALID, "visual basic");
 

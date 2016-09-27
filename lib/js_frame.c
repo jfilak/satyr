@@ -17,7 +17,6 @@
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-#include "internal_js_platform.h"
 #include "js/frame.h"
 #include "utils.h"
 #include "location.h"

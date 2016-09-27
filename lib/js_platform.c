@@ -17,9 +17,6 @@
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-
-#include "internal_js_platform.h"
-
 #include "js/platform.h"
 #include "js/stacktrace.h"
 #include "js/frame.h"
@@ -184,9 +181,9 @@ sr_js_platform_to_json(sr_js_platform_t platform)
     if (!engine_str)
         engine_str = "<unknown>";
 
-   return sr_asprintf("{      \"engine\": \"%s\"\n"
-                      ",      \"runtime\": \"%s\"\n"
-                      "}",
+   return sr_asprintf("{    \"engine\": \"%s\"\n"
+                      ",    \"runtime\": \"%s\"\n"
+                      "}\n",
                       engine_str,
                       runtime_str);
 }
@@ -197,6 +194,8 @@ sr_js_platform_from_json(struct sr_json_value *root, char **error_message)
     sr_js_platform_t platform = SR_JS_PLATFORM_NULL;
 
     char *engine_str = NULL;
+    char *runtime_str = NULL;
+
     if (!JSON_READ_STRING(root, "engine", &engine_str))
         goto fail;
 
@@ -206,14 +205,14 @@ sr_js_platform_from_json(struct sr_json_value *root, char **error_message)
         goto fail;
     }
 
-    enum sr_js_engine engine= sr_js_engine_from_string(engine_str);
-    if (!engine)
+    enum sr_js_engine engine = 0;
+    if (     strcmp(engine_str, "<unknown>") != 0
+        && !(engine = sr_js_engine_from_string(engine_str)))
     {
-        *error_message =sr_asprintf("Unknown JavaScript engine '%s'", engine_str);
+        *error_message = sr_asprintf("Unknown JavaScript engine '%s'", engine_str);
         goto fail;
     }
 
-    char *runtime_str = NULL;
     if (!JSON_READ_STRING(root, "runtime", &runtime_str))
         goto fail;
 
@@ -223,10 +222,11 @@ sr_js_platform_from_json(struct sr_json_value *root, char **error_message)
         goto fail;
     }
 
-    enum sr_js_runtime runtime = sr_js_runtime_from_string(runtime_str);
-    if (!runtime)
+    enum sr_js_runtime runtime = 0;
+    if (     strcmp(runtime_str, "<unknown>") != 0
+        && !(runtime = sr_js_runtime_from_string(runtime_str)))
     {
-        *error_message =sr_asprintf("Unknown JavaScript runtime '%s'", runtime_str);
+        *error_message = sr_asprintf("Unknown JavaScript runtime '%s'", runtime_str);
         goto fail;
     }
 
